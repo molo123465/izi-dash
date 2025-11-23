@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Izi-Dash X Final Fixed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+        /* --- CORE & RESET --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+        body { background: #000; overflow: hidden; font-family: 'Russo One', sans-serif; color: white; height: 100vh; width: 100vw; position: fixed; }
+        
+        #game-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #121225 0%, #000000 100%);
+            overflow: hidden; z-index: 1;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- UI LAYERS (GLASSMORPHISM) --- */
+        .ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            z-index: 20; transition: opacity 0.2s ease; opacity: 1; pointer-events: auto;
+        }
+        .hidden { opacity: 0; pointer-events: none; }
+
+        /* TIPOGRAFÍA */
+        h1 {
+            font-family: 'Russo One', sans-serif; font-size: clamp(2.5rem, 10vw, 5rem);
+            text-transform: uppercase; text-shadow: 0 0 25px #00ffcc;
+            margin-bottom: 2vh; text-align: center; line-height: 1;
+            background: linear-gradient(180deg, #fff, #00ffcc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        h2 { font-size: clamp(1.2rem, 5vw, 2.5rem); margin-bottom: 15px; color: #fff; text-align: center; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+
+        /* BOTONES MEJORADOS (TOUCH FRIENDLY) */
+        .btn {
+            background: rgba(0, 255, 153, 0.15); border: 2px solid #00ff99; border-radius: 12px;
+            color: #00ff99; padding: 15px 30px; width: 80%; max-width: 350px;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(1rem, 4vw, 1.4rem);
+            cursor: pointer; margin: 8px 0; letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(0, 255, 153, 0.2); text-shadow: 0 0 5px #00ff99;
+            transition: all 0.1s; text-transform: uppercase; display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation; outline: none; /* Sin borde de foco azul */
+        }
+        .btn:active { background: #00ff99; color: #000; transform: scale(0.95); box-shadow: 0 0 25px #00ff99; }
+        .btn:focus { outline: none; } /* Asegurar que no se queda marcado */
+        
+        .btn-blue { border-color: #00ccff; color: #00ccff; background: rgba(0, 204, 255, 0.15); box-shadow: 0 0 15px rgba(0, 204, 255, 0.2); text-shadow: 0 0 5px #00ccff; }
+        .btn-blue:active { background: #00ccff; color: #000; box-shadow: 0 0 25px #00ccff; }
+        
+        .btn-red { border-color: #ff4444; color: #ff4444; background: rgba(255, 68, 68, 0.15); box-shadow: 0 0 15px rgba(255, 68, 68, 0.2); text-shadow: 0 0 5px #ff4444; }
+        .btn-red:active { background: #ff4444; color: #000; box-shadow: 0 0 25px #ff4444; }
+        
+        .btn-purple { border-color: #d500f9; color: #d500f9; background: rgba(213, 0, 249, 0.15); }
+        .btn-purple:active { background: #d500f9; color: #fff; }
+        
+        .btn-gold { border-color: #ffd700; color: #ffd700; background: rgba(255, 215, 0, 0.15); }
+        .btn-gold:active { background: #ffd700; color: #000; }
+
+        .btn-row { display: flex; gap: 15px; width: 80%; max-width: 350px; justify-content: center; }
+        .btn-icon { width: 60px; height: 60px; padding: 0; font-size: 1.8rem; border-radius: 15px; flex-shrink: 0; }
+
+        /* HUD BOTONES (INGAME) */
+        .hud-btn {
+            width: 50px; height: 50px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); color: white;
+            font-size: 1.5rem; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; pointer-events: auto; transition: 0.1s;
+        }
+        .hud-btn:active { background: rgba(255,255,255,0.3); border-color: white; }
+        
+        .btn-practice { border-color: #00ff99; color: #00ff99; }
+        .btn-practice.active { background: #00ff99; color: black; box-shadow: 0 0 15px #00ff99; }
+
+        /* HUD LAYOUT */
+        #hud { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 15px; 
+            display: flex; flex-direction: column; justify-content: space-between;
+            pointer-events: none; z-index: 15; 
+        }
+        .hud-top { display: flex; justify-content: space-between; width: 100%; align-items: flex-start; }
+        .hud-bottom { display: flex; justify-content: space-between; width: 100%; align-items: flex-end; padding-bottom: 10px; }
+
+        #progress-container { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            width: 40%; text-align: center; 
+        }
+        #progress-track { width: 100%; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; overflow: hidden; }
+        #progress-fill { width: 0%; height: 100%; background: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
+
+        /* SCROLL CONTAINERS */
+        .scroll-box {
+            width: 95%; max-width: 600px; max-height: 50vh; overflow-y: auto; 
+            padding: 10px; background: rgba(0,0,0,0.3); border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);
+            -webkit-overflow-scrolling: touch; margin-bottom: 15px;
+        }
+
+        /* SHOP GRID */
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; }
+        .shop-item {
+            aspect-ratio: 1; background: rgba(255,255,255,0.05); border: 2px solid #444; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; position: relative; transition: 0.1s;
+        }
+        .shop-item.selected { border-color: #00ffcc; background: rgba(0, 255, 204, 0.1); box-shadow: 0 0 15px rgba(0,255,204,0.2); }
+        .shop-item.locked { opacity: 0.5; filter: grayscale(1); }
+        .shop-item.locked::after { content: "🔒"; font-size: 1.2rem; }
+
+        /* INPUT FIELD */
+        input[type="text"] {
+            width: 80%; padding: 12px; border-radius: 8px; border: 2px solid #00ffcc;
+            background: rgba(0,0,0,0.5); color: white; font-family: 'Orbitron'; font-size: 1.2rem; text-align: center;
+            margin-bottom: 15px; outline: none;
+        }
+
+        /* RIPPLE TOUCH */
+        .touch-ripple {
+            position: absolute; width: 100px; height: 100px; border-radius: 50%;
+            background: rgba(255,255,255,0.4); transform: scale(0);
+            animation: ripple 0.4s linear; pointer-events: none; margin-top: -50px; margin-left: -50px;
+        }
+        @keyframes ripple { to { transform: scale(2); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD (INGAME) -->
+        <div id="hud" class="hidden">
+            <!-- TOP BAR -->
+            <div class="hud-top">
+                <div style="text-align: left;">
+                    <button class="hud-btn" onclick="this.blur(); Game.pauseLevel()">||</button>
+                    <div id="hud-fps" style="font-size:0.7rem; color:#00ffcc; margin-top:5px;">60 FPS</div>
+                </div>
+                
+                <!-- PRACTICE MODE TOGGLE -->
+                <button id="btn-practice" class="hud-btn btn-practice" onclick="this.blur(); Game.togglePractice()">◆</button>
+            </div>
+
+            <div id="progress-container">
+                 <div id="progress-track"><div id="progress-fill"></div></div>
+                 <div id="hud-pct" style="font-size: 0.8rem; text-shadow: 1px 1px 1px black;">0%</div>
+            </div>
+
+            <!-- BOTTOM BAR -->
+            <div class="hud-bottom">
+                <div id="hud-attempt" style="font-size:1rem; text-shadow: 2px 2px 0 #000;">Intento 1</div>
+                <div id="rec-indicator" style="color:red; display:none; font-weight:bold; animation: blink 1s infinite;">● REC</div>
+            </div>
+        </div>
+
+        <!-- MENU PRINCIPAL -->
+        <div id="menu-main" class="ui-layer">
+            <h1>IZI-DASH</h1>
+            <h3 style="color:#00ffcc; margin-bottom: 30px; letter-spacing: 2px;">BUGFIXED EDITION</h3>
+            
+            <button class="btn" onclick="this.blur(); UI.toLevels()">JUGAR</button>
+            
+            <div class="btn-row">
+                <button class="btn btn-icon btn-purple" onclick="this.blur(); UI.toSettings()">⚙️</button>
+                <button class="btn btn-icon btn-gold" onclick="this.blur(); UI.toCodes()">🔒</button>
+                <button class="btn btn-icon btn-blue" onclick="this.blur(); UI.toShop()">🛒</button>
+            </div>
+            
+            <div style="margin-top: 20px; background: rgba(0,0,0,0.5); padding: 8px 20px; border-radius: 20px; border: 1px solid #333;">
+                Orbes: <span id="menu-orbs" style="color:yellow;">0</span>
+            </div>
+            <div style="font-size: 0.6rem; color: #666; margin-top: 10px;">(Ctrl+D: Pánico)</div>
+        </div>
+
+        <!-- NIVELES -->
+        <div id="menu-levels" class="ui-layer hidden">
+            <h2>NIVELES</h2>
+            <div class="scroll-box">
+                <div id="level-grid" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;"></div>
+            </div>
+            <button class="btn btn-red" style="width: auto;" onclick="this.blur(); UI.toMain()">VOLVER</button>
+        </div>
+
+        <!-- TIENDA -->
+        <div id="menu-shop" class="ui-layer hidden">
+            <h2 style="color:#00ccff">TIENDA</h2>
+            <div style="color:yellow; margin-bottom:10px;">SALDO: <span id="shop-orbs-disp">0</span></div>
+            
+            <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap; justify-content:center;">
+                <button class="hud-btn" style="width:auto; padding:0 10px; font-size:0.8rem;" onclick="UI.setShopTab('colors')">COLOR</button>
+                <button class="hud-btn" style="width:auto; padding:0 10px; font-size:0.8rem;" onclick="UI.setShopTab('icons')">ICONO</button>
+                <button class="hud-btn" style="width:auto; padding:0 10px; font-size:0.8rem;" onclick="UI.setShopTab('trails')">TRAIL</button>
+                <button class="hud-btn" style="width:auto; padding:0 10px; font-size:0.8rem;" onclick="UI.setShopTab('deaths')">FX</button>
+            </div>
+            
+            <div class="scroll-box">
+                <div id="shop-grid" class="shop-grid"></div>
+            </div>
+            <div id="shop-msg" style="height:20px; color:#00ffcc; font-weight:bold; margin-bottom:5px;"></div>
+            <button class="btn btn-red" style="width: auto;" onclick="this.blur(); UI.toMain()">VOLVER</button>
+        </div>
+
+        <!-- AJUSTES -->
+        <div id="menu-settings" class="ui-layer hidden">
+            <h2>AJUSTES</h2>
+            <div class="scroll-box">
+                <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #333;"><span>Música</span><input type="range" id="vol-music" onchange="UI.updVol('m',this.value)"></div>
+                <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #333;"><span>SFX</span><input type="range" id="vol-sfx" onchange="UI.updVol('s',this.value)"></div>
+                <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #333;"><span>Auto-Retry</span><input type="checkbox" id="chk-retry" onchange="UI.tog('autoRetry')"></div>
+                <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #333;"><span>FPS</span><input type="checkbox" id="chk-fps" onchange="UI.tog('showFPS')"></div>
+                <div style="display:flex; justify-content:space-between; padding:10px;"><span>Hitbox</span><input type="checkbox" id="chk-debug" onchange="UI.tog('debugMode')"></div>
+            </div>
+            <button class="btn btn-red" style="width: auto;" onclick="this.blur(); UI.toMain()">VOLVER</button>
+        </div>
+
+        <!-- CODIGOS -->
+        <div id="menu-codes" class="ui-layer hidden">
+            <h2 style="color:#ffd700">BÓVEDA</h2>
+            <input type="text" id="code-input" placeholder="código secreto">
+            <div id="code-msg" style="height:20px; font-weight:bold; margin-bottom:10px;"></div>
+            <button class="btn btn-gold" onclick="this.blur(); Game.redeem()">CANJEAR</button>
+            <button class="btn btn-red" onclick="this.blur(); UI.toMain()">VOLVER</button>
+        </div>
+
+        <!-- PAUSA -->
+        <div id="menu-pause" class="ui-layer hidden">
+            <h1 style="font-size:3rem; margin-bottom:10px;">PAUSA</h1>
+            <p id="pause-desc" style="color:#ccc; margin-bottom:20px;"></p>
+            <button class="btn" onclick="this.blur(); Game.restart()">REINTENTAR</button>
+            <button class="btn btn-blue" id="btn-resume" onclick="this.blur(); Game.resume()">CONTINUAR</button>
+            <button class="btn btn-purple" id="btn-dl" style="display:none;" onclick="this.blur(); Recorder.download()">BAJAR VIDEO</button>
+            <button class="btn btn-red" onclick="this.blur(); UI.toMain()">SALIR</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SYSTEM ---
+        const AudioSys = {
+            ctx: null, volM: 0.5, volS: 0.5, playing: false, t: null, idx: 0,
+            init: function() { window.AudioContext = window.AudioContext||window.webkitAudioContext; this.ctx=new AudioContext(); },
+            play: function(f,type,dur,vol,det=0,isM=false) {
+                if(!this.ctx) this.init(); if(this.ctx.state==='suspended') this.ctx.resume();
+                const v = isM?this.volM:this.volS; if(v<=0)return;
+                const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+                o.type=type; o.frequency.value=f; if(det)o.detune.value=det;
+                g.gain.setValueAtTime(vol*v, this.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime+dur);
+                o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+dur);
+            },
+            jump: function() { this.play(150,'square',0.1,0.05,0,false); },
+            orb: function() { this.play(600,'sine',0.3,0.1,0,false); },
+            die: function() { this.play(100,'sawtooth',0.5,0.2,0,false); },
+            win: function() { [523,659,784,1046].forEach((f,i)=>setTimeout(()=>this.play(f,'triangle',0.4,0.1,0,false),i*100)); },
+            music: function() {
+                if(this.playing) return; this.playing=true; this.idx=0;
+                const bass=[65,65,65,65,77,77,77,77,58,58,58,58,49,49,49,49];
+                this.t = setInterval(()=>{
+                    if(!this.playing) return;
+                    if(this.idx%4===0) this.play(60,'sine',0.1,0.4,0,true);
+                    if(this.idx%8===4) this.play(150,'square',0.05,0.1,0,true);
+                    if(this.idx%2===0) this.play(bass[Math.floor(this.idx/4)%16],'sawtooth',0.15,0.15,0,true);
+                    this.idx++;
+                }, 187);
+            },
+            stop: function() { this.playing=false; clearInterval(this.t); }
+        };
+
+        const Recorder = {
+            mr: null, chunks: [], url: null,
+            start: function(cv) {
+                this.chunks=[]; try {
+                    const st = cv.captureStream(30);
+                    this.mr = new MediaRecorder(st, {mimeType:'video/webm;codecs=vp9'});
+                    this.mr.ondataavailable = e => { if(e.data.size>0) this.chunks.push(e.data); };
+                    this.mr.start(); document.getElementById('rec-indicator').style.display='block';
+                } catch(e){}
+            },
+            stop: function() {
+                if(this.mr && this.mr.state!=='inactive') {
+                    this.mr.stop(); document.getElementById('rec-indicator').style.display='none';
+                    this.mr.onstop = () => {
+                        const b = new Blob(this.chunks, {type:'video/webm'});
+                        if(this.url) URL.revokeObjectURL(this.url); this.url=URL.createObjectURL(b);
+                        document.getElementById('btn-dl').style.display='inline-block';
+                    };
+                }
+            },
+            download: function() {
+                if(!this.url) return;
+                const a=document.createElement('a'); a.style.display='none'; a.href=this.url; a.download=`izidash_${Date.now()}.webm`;
+                document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),100);
+            }
+        };
+
+        // --- DATA ---
+        const Data = {
+            orbs: 0, unlocked: 0, colors: ['#FF0'], icons: ['cube'], trails: ['basic'], deaths: ['classic'],
+            currC: '#FF0', currI: 'cube', currT: 'basic', currD: 'classic', codes: [],
+            load: function() { try{Object.assign(this, JSON.parse(localStorage.getItem('id_d')));}catch(e){} },
+            save: function() { localStorage.setItem('id_d', JSON.stringify(this)); }
+        };
+        const Opts = {
+            retry: false, prog: true, fps: false, debug: false,
+            load: function() { try{Object.assign(this, JSON.parse(localStorage.getItem('id_o')));}catch(e){} },
+            save: function() { localStorage.setItem('id_o', JSON.stringify(this)); }
+        };
+
+        // --- LEVEL GEN ---
+        function genMap() {
+            let m="__________________________"; const p=["####____^____####","____^^^____P____","____G____^^^____Y____","____>____####____<____","____@____@____@____"];
+            for(let i=0;i<80;i++) m+=p[Math.floor(Math.random()*p.length)]+"____"; return m+"C";
+        }
+        const Levels = [
+            {n:"Inicio", d:"Fácil", c:"#005599", m:"_________________________________##_______^_______##_______P_______####____^____####_______@_______####____^____####_______P_______######_______^^_______######_______@___@_______########_________^^^_________###___@___###_________P___________##########_______@_______@_______###################_______C"},
+            {n:"Técnica", d:"Normal", c:"#009944", m:"______________________________#_______#____^____#____^____P____P____####__^^__####__^^__####____@____@____######____^^^____######____@_@_@____########______^^^_____________############_______P_______P_______P_______#####################____^____^____^____#####################_______C"}, // NO SPEED, JUST SKILL
+            {n:"Anti-G", d:"Difícil", c:"#990044", m:"_______________________________##____G____##____^____##____Y____##____^____P____@____####____G____^^^____Y____####____@____######____G____^^____^^____Y____######____P____###########____G____#___#___#____Y____####____@____C"},
+            {n:"Caos", d:"Demon", c:"#333", m:"_____________________________#___>___G___###___^___###___Y___<___###___@___G___^^^___Y___P___G___#####___@___#####___Y___>___############___G___^^___Y___^^___G___^^___Y___##########___C"},
+            {n:"DESAFÍO", d:"GOD", c:"#4a0000", m:genMap()}
+        ];
+
+        // --- ENGINE ---
+        const CV=document.getElementById('gameCanvas'), CX=CV.getContext('2d',{alpha:false});
+        function resize(){ CV.width=window.innerWidth; CV.height=window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        class Particle {
+            constructor(x,y,c,t) { this.x=x; this.y=y; this.c=c; this.l=1; this.vx=(Math.random()-.5)*(t=='e'?15:3); this.vy=(Math.random()-.5)*(t=='e'?15:3); this.s=Math.random()*6+3; }
+            up() { this.x+=this.vx; this.y+=this.vy; this.l-=0.04; this.s*=0.95; }
+            draw(k) { CX.fillStyle=this.c; CX.globalAlpha=Math.max(0,this.l); CX.fillRect(this.x-k,this.y,this.s,this.s); CX.globalAlpha=1; }
+        }
+
+        const Game = {
+            st: 'MENU', id: null, p: null, o: {}, fx: [], k: 0, fy: 0, shake: 0,
+            att: 1, fr: 0, spd: 1, g: 1, j: false, lt: 0,
+            practice: false, cp: null,
+            ignoreInput: 0, // Safety buffer
+
+            start: function(i) {
+                if(this.id) cancelAnimationFrame(this.id);
+                UI.hud(); if(i===4) Levels[4].m=genMap();
+                const l=Levels[i]; this.spd=1; this.g=1; this.fy=CV.height-100;
+                this.p={x:200, y:this.fy-50, w:50, h:50, dy:0, on:false, rot:0, dead:false};
+                this.o={b:[],s:[],p:[],rb:[],pt:[],wx:0}; this.fx=[]; this.shake=0; this.cp=null; this.practice=false;
+                this.ignoreInput = 10; // Ignore input for first frames
+                document.getElementById('btn-practice').classList.remove('active');
+
+                let x=700, ts=60;
+                for(let c of l.m) {
+                    const y=this.fy;
+                    if(c=='#') this.o.b.push({x,y:y-ts,w:ts,h:ts});
+                    if(c=='^') this.o.s.push({x,y:y-ts,w:ts,h:ts});
+                    if(c=='P') this.o.p.push({x,y:y-15,w:ts,h:15});
+                    if(c=='@') this.o.rb.push({x,y:y-ts*2.5,w:ts,h:ts,act:0});
+                    if(c=='G') this.o.pt.push({x,y:y-ts*3,w:ts,h:ts*3,t:'gu'});
+                    if(c=='Y') this.o.pt.push({x,y:y-ts*3,w:ts,h:ts*3,t:'gd'});
+                    if(c=='>') this.o.pt.push({x,y:y-ts*2,w:ts,h:ts*2,t:'su'});
+                    if(c=='<') this.o.pt.push({x,y:y-ts*2,w:ts,h:ts*2,t:'sd'});
+                    if(c=='C') this.o.wx=x;
+                    x+=ts;
+                }
+                if(this.o.wx===0) this.o.wx=x;
+
+                this.st='PLAY'; AudioSys.music(); Recorder.start(CV); this.lt=performance.now(); this.loop();
+            },
+
+            restart: function() {
+                if(this.practice && this.cp) {
+                    this.p.x = this.cp.x; this.p.y = this.cp.y; this.p.dy = 0; this.p.rot = 0;
+                    this.p.dead = false; this.st = 'PLAY'; this.fx = [];
+                    this.speedMult = this.cp.spd; this.gravityDir = this.cp.g;
+                    this.ignoreInput = 10; // Buffer
+                    this.loop();
+                } else {
+                    this.att++; this.start(UI.cur); document.getElementById('hud-attempt').innerText="Intento "+this.att;
+                }
+            },
+            
+            togglePractice: function() {
+                if(this.st !== 'PLAY') return;
+                this.practice = true;
+                this.cp = { x: this.p.x, y: this.p.y, spd: this.spd, g: this.g };
+                document.getElementById('btn-practice').classList.add('active');
+                for(let i=0; i<10; i++) this.fx.push(new Particle(this.p.x, this.p.y, '#00ff99', 'e'));
+                AudioSys.play(800, 'sine', 0.1, 0.2);
+            },
+
+            resume: function() { this.st='PLAY'; UI.hud(); this.loop(); },
+            pauseLevel: function() { 
+                if(this.st=='PLAY') { 
+                    this.st='PAUSE'; 
+                    if(document.activeElement) document.activeElement.blur(); 
+                    UI.pause("PAUSA",""); 
+                } 
+            },
+
+            loop: function() {
+                const now=performance.now(), dt=now-this.lt; this.lt=now;
+                if(Opts.fps && this.fr%30===0) document.getElementById('hud-fps').innerText=Math.round(1000/dt)+" FPS";
+                if(this.st=='PLAY') { 
+                    if(this.ignoreInput > 0) { this.ignoreInput--; this.j = false; }
+                    this.upd(); this.fr++; this.updHud(); 
+                }
+                this.fx.forEach(p=>p.up()); this.draw();
+                if(this.st!='MENU' && this.st!='PAUSE') this.id=requestAnimationFrame(()=>this.loop());
+            },
+
+            upd: function() {
+                const p=this.p; p.dy += 2.2 * this.g;
+                if(Math.abs(p.dy)>25) p.dy=25*Math.sign(p.dy);
+                
+                if(this.j && p.on) { p.dy = -26.5 * this.g; p.on=false; AudioSys.jump(); }
+                this.j=false;
+
+                let ny = p.y + p.dy; p.on=false;
+                if(this.g==1 && ny+p.h > this.fy) { ny=this.fy-p.h; p.dy=0; p.on=true; p.rot=Math.round(p.rot/90)*90; }
+                if(this.g==-1 && ny < 100) { ny=100; p.dy=0; p.on=true; p.rot=Math.round(p.rot/90)*90; }
+
+                const r=400;
+                for(let b of this.o.b) {
+                    if(Math.abs(b.x-p.x)<r) {
+                        if(p.x<b.x+b.w && p.x+p.w>b.x && ny<b.y+b.h && ny+p.h>b.y) {
+                            if(this.g==1 && p.y+p.h<=b.y+25 && p.dy>=0) { ny=b.y-p.h; p.dy=0; p.on=true; p.rot=Math.round(p.rot/90)*90; }
+                            else if(this.g==-1 && p.y>=b.y+b.h-25 && p.dy<=0) { ny=b.y+b.h; p.dy=0; p.on=true; p.rot=Math.round(p.rot/90)*90; }
+                            else if(p.y>=b.y+b.h-25 && p.dy<0) { ny=b.y+b.h; p.dy=0; }
+                            else if(p.y+p.h<=b.y+25 && p.dy>0) { ny=b.y-p.h; p.dy=0; }
+                            else { this.die(); return; }
+                        }
+                    }
+                }
+                p.y=ny;
+
+                const pd=18;
+                for(let s of this.o.s) if(Math.abs(s.x-p.x)<r && p.x+pd<s.x+s.w-pd && p.x+p.w-pd>s.x+pd && p.y+pd<s.y+s.h-pd && p.y+p.h-pd>s.y+pd) { this.die(); return; }
+                
+                for(let o of this.o.p) if(Math.abs(o.x-p.x)<r && p.x<o.x+o.w && p.x+p.w>o.x && p.y+p.h>=o.y && p.y+p.h<=o.y+30) { p.dy=-36*this.g; p.on=false; AudioSys.jump(); }
+                
+                for(let t of this.o.pt) if(Math.abs(t.x-p.x)<60 && p.x>t.x && p.x<t.x+10) {
+                    let ch=false;
+                    if(t.t=='gu' && this.g==1) { this.g=-1; ch=true; }
+                    if(t.t=='gd' && this.g==-1) { this.g=1; ch=true; }
+                    if(ch) { AudioSys.play(300,'sawtooth',0.2,0.1); this.shake=10; }
+                    if(t.t=='su') this.spd=1.5; if(t.t=='sd') this.spd=1.0;
+                }
+                
+                p.x += 9*this.spd;
+                if(!p.on) p.rot += 8*this.g;
+                if(this.fr%3==0) {
+                    let c=Data.currC; if(Data.currT=='fire')c=`hsl(${Math.random()*50},100%,50%)`;
+                    this.fx.push(new Particle(p.x+p.w/2, p.y+p.h/2, c, 't'));
+                }
+                if(p.x > this.o.wx) this.win();
+            },
+
+            die: function() {
+                if(this.p.dead) return; this.p.dead=true; this.j=false; // CUT INPUT
+                AudioSys.die(); this.shake=30; Recorder.stop();
+                for(let i=0;i<30;i++) this.fx.push(new Particle(this.p.x+25, this.p.y+25, Data.currC, 'e'));
+                this.st='DYING';
+                if(Opts.retry) setTimeout(()=>this.restart(), 800);
+                else setTimeout(()=>{
+                    const pct=Math.floor((this.p.x/this.o.wx)*100);
+                    Data.orbs+=Math.floor(pct/10); Data.save(); UI.pause("CRASH",`Progreso: ${pct}%`);
+                }, 800);
+            },
+
+            win: function() {
+                this.st='MENU'; this.j=false; // CUT INPUT
+                AudioSys.win(); Recorder.stop();
+                Data.orbs += 150 + (UI.cur*50); if(UI.cur===Data.unlocked) Data.unlocked++; Data.save();
+                UI.pause("VICTORIA", `Nivel Completado!`);
+            },
+
+            updHud: function() {
+                if(this.o.wx>0) {
+                    const pct=Math.min(100,Math.floor((this.p.x/this.o.wx)*100));
+                    document.getElementById('hud-pct').innerText=pct+"%";
+                    document.getElementById('progress-fill').style.width=pct+"%";
+                }
+            },
+
+            draw: function() {
+                this.k += (this.p.x - 300 - this.k)*0.1; let cx=this.k;
+                if(this.shake>0) { cx+=(Math.random()-.5)*this.shake; this.shake*=0.9; }
+
+                CX.fillStyle = Levels[UI.cur].c; CX.fillRect(0,0,CV.width,CV.height);
+                CX.fillStyle = '#000'; CX.fillRect(0,this.fy,CV.width,CV.height-this.fy);
+                CX.strokeStyle='#fff'; CX.lineWidth=3; CX.beginPath(); CX.moveTo(0,this.fy); CX.lineTo(CV.width,this.fy); CX.stroke();
+                if(this.g==-1) { CX.fillRect(0,0,CV.width,100); CX.beginPath(); CX.moveTo(0,100); CX.lineTo(CV.width,100); CX.stroke(); }
+
+                const W=CV.width;
+                this.o.b.forEach(b=>{if(b.x+b.w>cx && b.x<cx+W){CX.fillStyle='#000';CX.strokeStyle='#0ff';CX.lineWidth=2;CX.fillRect(b.x-cx,b.y,b.w,b.h);CX.strokeRect(b.x-cx,b.y,b.w,b.h);}});
+                this.o.s.forEach(s=>{if(s.x+s.w>cx && s.x<cx+W){CX.fillStyle='#ddd';CX.beginPath();CX.moveTo(s.x-cx,s.y+s.h);CX.lineTo(s.x-cx+s.w/2,s.y);CX.lineTo(s.x-cx+s.w,s.y+s.h);CX.fill(); if(Opts.debug){CX.strokeStyle='red';CX.strokeRect(s.x-cx+18,s.y+18,s.w-36,s.h-36);} }});
+                this.o.p.forEach(p=>{if(p.x+p.w>cx && p.x<cx+W){CX.fillStyle='#ff0';CX.fillRect(p.x-cx,p.y,p.w,p.h);}});
+                this.o.rb.forEach(o=>{if(o.x+o.w>cx && o.x<cx+W){CX.beginPath();CX.arc(o.x-cx+o.w/2,o.y+o.h/2,20,0,7);CX.strokeStyle='#ff0';CX.stroke(); if(o.act>0){CX.fillStyle='#fff';o.act--;}else CX.fillStyle='rgba(255,255,0,0.3)'; CX.fill();}});
+                this.o.pt.forEach(p=>{if(p.x+p.w>cx && p.x<cx+W){CX.fillStyle=p.t.includes('g')?'#00f':'#0f0';CX.globalAlpha=0.6;CX.fillRect(p.x-cx,p.y,p.w,p.h);CX.globalAlpha=1;}});
+
+                if(this.practice && this.cp) {
+                    // Draw checkpoint visual
+                    CX.fillStyle = '#00ff99';
+                    CX.beginPath(); CX.arc(this.cp.x - cx + 25, this.cp.y + 25, 10, 0, 6.28); CX.fill();
+                }
+
+                this.fx.forEach(p=>p.draw(cx));
+
+                if(!this.p.dead) {
+                    const p=this.p; CX.save(); CX.translate(p.x-cx+p.w/2, p.y+p.h/2); CX.rotate(p.rot*Math.PI/180);
+                    CX.strokeStyle='#000'; CX.lineWidth=3;
+                    if(Data.currI=='cube'){CX.fillStyle=Data.currC;CX.fillRect(-25,-25,50,50);CX.strokeRect(-25,-25,50,50);CX.fillStyle='#000';CX.fillRect(5,-10,15,15);}
+                    else if(Data.currI=='ball'){CX.fillStyle=Data.currC;CX.beginPath();CX.arc(0,0,25,0,6.28);CX.fill();CX.stroke();}
+                    else {CX.fillStyle='#333';CX.fillRect(-25,-25,50,50);CX.strokeRect(-25,-25,50,50);CX.fillStyle=Data.currC;CX.fillRect(-25,-5,50,10);CX.fillStyle='#fff';CX.fillRect(5,-5,15,6);}
+                    CX.restore();
+                    if(Opts.debug){CX.strokeStyle='green';CX.strokeRect(p.x-cx,p.y,p.w,p.h);}
+                }
+            },
+
+            redeem: function() {
+                const c=document.getElementById('code-input').value.toLowerCase();
+                if(c=='ishak012' && !Data.codes.includes(c)) { 
+                    Data.orbs+=999999; 
+                    Data.unlocked = Levels.length - 1; // UNLOCK ALL LEVELS
+                    Data.codes.push(c); 
+                    Data.save(); 
+                    document.getElementById('code-msg').innerText="¡TODO DESBLOQUEADO!"; 
+                    AudioSys.win(); 
+                }
+                else document.getElementById('code-msg').innerText="ERROR";
+            }
+        };
+
+        // --- INPUT SYSTEM (FINAL FIX) ---
+        const Input = {
+            handle: function(e) {
+                // CHECK UI
+                if(e.target.closest('button') || e.target.closest('.shop-item') || e.target.closest('.toggle-switch') || e.target.tagName==='INPUT') return;
+                
+                if(e.type !== 'mousedown') e.preventDefault(); 
+
+                if(Game.st === 'PLAY') {
+                    const cx = Game.k + (e.touches?e.touches[0].clientX:e.clientX);
+                    const cy = e.touches?e.touches[0].clientY:e.clientY;
+                    let orbHit = false;
+                    for(let o of Game.o.rb) {
+                        if(Math.abs(o.x - Game.p.x) < 100) {
+                            const d = Math.hypot((Game.p.x+25)-(o.x+30), (Game.p.y+25)-(o.y+30));
+                            if(d < 70) { 
+                                Game.p.dy = -22 * Game.g; Game.p.on=false; o.act=10; AudioSys.orb();
+                                orbHit = true;
+                            }
+                        }
+                    }
+                    if(!orbHit) Game.j = true;
+
+                    const r = document.createElement('div'); r.className='touch-ripple';
+                    r.style.left = (e.touches?e.touches[0].clientX:e.clientX) + 'px';
+                    r.style.top = (e.touches?e.touches[0].clientY:e.clientY) + 'px';
+                    document.body.appendChild(r); setTimeout(()=>r.remove(),400);
+                }
+            }
+        };
+
+        window.addEventListener('touchstart', Input.handle, {passive:false});
+        window.addEventListener('mousedown', Input.handle);
+        window.addEventListener('keydown', e=>{
+            if((e.ctrlKey||e.metaKey)&&e.key=='d'){e.preventDefault();document.body.innerHTML='';document.title='Google';document.body.style.background='#fff';}
+            if(e.code=='Space'||e.code=='ArrowUp'){
+                e.preventDefault(); 
+                if(Game.st === 'PLAY') Game.j = true; // Only jump if playing
+            }
+            if(e.code=='Escape')Game.pauseLevel();
+        });
+
+        // --- UI ---
+        const UI = {
+            cur: 0, tab: 'colors',
+            hide: function() { document.querySelectorAll('.ui-layer').forEach(e=>e.classList.add('hidden')); },
+            toMain: function() { Game.st='MENU'; Game.id=null; AudioSys.stop(); this.hide(); document.getElementById('menu-main').classList.remove('hidden'); document.getElementById('hud').classList.add('hidden'); document.getElementById('menu-orbs').innerText=Data.orbs; },
+            toLevels: function() { this.hide(); document.getElementById('menu-levels').classList.remove('hidden'); this.rendLvl(); },
+            toShop: function() { this.hide(); document.getElementById('menu-shop').classList.remove('hidden'); this.rendShop(); },
+            toSettings: function() { this.hide(); document.getElementById('menu-settings').classList.remove('hidden'); this.rendSet(); },
+            toCodes: function() { this.hide(); document.getElementById('menu-codes').classList.remove('hidden'); },
+            hud: function() { this.hide(); document.getElementById('hud').classList.remove('hidden'); document.getElementById('progress-container').style.display=Opts.prog?'block':'none'; document.getElementById('hud-fps').style.display=Opts.fps?'block':'none'; document.getElementById('btn-dl').style.display='none'; },
+            pause: function(t,d) { 
+                this.hide(); document.getElementById('menu-pause').classList.remove('hidden'); 
+                document.getElementById('pause-desc').innerText=d; 
+                document.getElementById('btn-resume').style.display=t.includes("!")?'none':'inline-block'; 
+                if(document.activeElement) document.activeElement.blur(); // Remove focus
+            },
+            
+            rendLvl: function() {
+                const g=document.getElementById('level-grid'); g.innerHTML='';
+                Levels.forEach((l,i)=>{
+                    const d=document.createElement('div'); d.className='lvl-card'+(i>Data.unlocked?' locked':'');
+                    d.innerHTML=`<div><div style="color:#fff;font-weight:bold;">${i+1}. ${l.n}</div><div style="color:#aaa;font-size:0.8rem;">${l.d}</div></div>`;
+                    if(i>Data.unlocked) d.innerHTML+='<div>🔒</div>';
+                    d.onclick=()=>{this.blur(); if(i<=Data.unlocked){this.cur=i;Game.start(i);}}; g.appendChild(d);
+                });
+            },
+            setShopTab: function(t) { this.tab=t; this.rendShop(); },
+            rendShop: function() {
+                const g=document.getElementById('shop-grid'); g.innerHTML=''; document.getElementById('shop-orbs-disp').innerText=Data.orbs;
+                document.querySelectorAll('.shop-tab').forEach(e=>e.classList.remove('active'));
+                
+                let items=[];
+                if(this.tab=='colors') items=[{id:'#FFFF00',c:0},{id:'#00FF00',c:100},{id:'#00FFFF',c:200},{id:'#FF00FF',c:300},{id:'#FF0000',c:500},{id:'#fff',c:1000},{id:'#000',c:2000}];
+                else if(this.tab=='icons') items=[{id:'cube',c:0},{id:'ball',c:500},{id:'ninja',c:1500}];
+                else if(this.tab=='trails') items=[{id:'basic',c:0},{id:'fire',c:600},{id:'matrix',c:1200}];
+                else items=[{id:'classic',c:0},{id:'implode',c:1000}];
+
+                items.forEach(it=>{
+                    const d=document.createElement('div'); d.className='shop-item';
+                    if(this.tab=='colors') d.style.backgroundColor=it.id; else d.innerText=it.id.substring(0,4);
+                    const own = (this.tab=='deaths')?Data.deaths.includes(it.id):Data[this.tab].includes(it.id);
+                    const eq = (this.tab=='colors'&&Data.currC==it.id)||(this.tab=='icons'&&Data.currI==it.id)||(this.tab=='trails'&&Data.currT==it.id)||(this.tab=='deaths'&&Data.currD==it.id);
+                    if(!own) { d.classList.add('locked'); d.innerHTML+=`<div class="price-tag">${it.c}</div>`; }
+                    if(eq) d.classList.add('selected');
+                    d.onclick=()=>{
+                        const m=document.getElementById('shop-msg');
+                        if(own) {
+                            if(this.tab=='colors')Data.currC=it.id; else if(this.tab=='icons')Data.currI=it.id; else if(this.tab=='trails')Data.currT=it.id; else Data.currD=it.id;
+                            Data.save(); this.rendShop(); m.innerText="EQUIPADO";
+                        } else if(Data.orbs>=it.c) {
+                            Data.orbs-=it.c; if(this.tab=='deaths')Data.deaths.push(it.id); else Data[this.tab].push(it.id);
+                            Data.save(); this.rendShop(); m.innerText="COMPRADO"; AudioSys.jump();
+                        } else m.innerText="FALTAN ORBES";
+                    }; g.appendChild(d);
+                });
+            },
+            rendSet: function() {
+                document.getElementById('chk-retry').checked=Opts.retry; document.getElementById('chk-fps').checked=Opts.fps;
+                document.getElementById('chk-debug').checked=Opts.debug;
+                document.getElementById('vol-music').value=Opts.volMusic; document.getElementById('vol-sfx').value=Opts.volSfx;
+            },
+            tog: function(k) { Opts[k]=!Opts[k]; Opts.save(); this.rendSet(); },
+            updVol: function(t,v) { if(t=='m'){Opts.volMusic=v;AudioSys.volM=v/100;}else{Opts.volSfx=v;AudioSys.volS=v/100;} Opts.save(); },
+            blur: function() { if(document.activeElement) document.activeElement.blur(); }
+        };
+
+        window.onload = () => { Data.load(); Opts.load(); UI.toMain(); };
+        window.onerror = () => { UI.toMain(); return true; };
+    </script>
+</body>
+</html>
